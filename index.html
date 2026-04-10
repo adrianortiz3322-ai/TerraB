@@ -2,54 +2,69 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mini Terraria</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Web Terraria</title>
+
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.js"></script>
 
 <style>
 
 body{
 margin:0;
 overflow:hidden;
-background:#87CEEB;
+background:black;
 font-family:sans-serif;
 }
 
-canvas{
-display:block;
-}
-
-#ui{
-position:fixed;
+#hud{
+position:absolute;
 top:10px;
 left:10px;
 color:white;
-font-size:18px;
+z-index:10;
 }
 
-#controls{
-position:fixed;
-bottom:20px;
+#inventory{
+position:absolute;
+bottom:10px;
 left:50%;
 transform:translateX(-50%);
 display:flex;
-gap:20px;
+gap:5px;
+}
+
+.slot{
+width:50px;
+height:50px;
+background:rgba(0,0,0,0.5);
+border:2px solid white;
+color:white;
+display:flex;
+align-items:center;
+justify-content:center;
+}
+
+#controls{
+position:absolute;
+bottom:30px;
+left:20px;
 }
 
 .btn{
 width:70px;
 height:70px;
+background:rgba(0,0,0,0.4);
 border-radius:50%;
-background:rgba(0,0,0,0.5);
-color:white;
-font-size:30px;
 display:flex;
 align-items:center;
 justify-content:center;
-user-select:none;
+color:white;
+font-size:30px;
+margin:5px;
 }
 
 #jump{
-position:fixed;
+position:absolute;
 right:30px;
 bottom:60px;
 }
@@ -59,11 +74,14 @@ bottom:60px;
 
 <body>
 
-<div id="ui">
+<div id="hud">
 ❤️ Vida: <span id="hp">100</span>
 </div>
 
-<canvas id="game"></canvas>
+<div id="inventory">
+<div class="slot" id="wood">0</div>
+<div class="slot" id="stone">0</div>
+</div>
 
 <div id="controls">
 <div class="btn" id="left">◀</div>
@@ -72,204 +90,188 @@ bottom:60px;
 
 <div class="btn" id="jump">⬆</div>
 
-<audio autoplay loop>
-<source src="https://cdn.pixabay.com/audio/2022/03/15/audio_3a98e1e9e7.mp3">
-</audio>
-
 <script>
 
-const canvas = document.getElementById("game")
-const ctx = canvas.getContext("2d")
+const TILE=32
+const WORLD=200
 
-canvas.width = window.innerWidth
-canvas.height = window.innerHeight
+let map=[]
+let blocks=[]
+let player
+let animals=[]
+let hp=100
 
-const TILE = 32
-const WORLD = 200
+let inv={
+wood:0,
+stone:0
+}
 
-let world = []
+const config={
+type:Phaser.AUTO,
+width:window.innerWidth,
+height:window.innerHeight,
+physics:{
+default:"arcade",
+arcade:{gravity:{y:600}}
+},
+scene:{preload,create,update}
+}
+
+new Phaser.Game(config)
+
+function preload(){
+
+this.load.image("grass","https://labs.phaser.io/assets/sprites/block.png")
+this.load.image("dirt","https://labs.phaser.io/assets/sprites/crate.png")
+this.load.image("stone","https://labs.phaser.io/assets/sprites/stone.png")
+this.load.image("tree","https://labs.phaser.io/assets/sprites/palm-tree.png")
+this.load.image("player","https://labs.phaser.io/assets/sprites/phaser-dude.png")
+this.load.image("bunny","https://labs.phaser.io/assets/sprites/bunny.png")
+
+this.load.audio("music","https://cdn.pixabay.com/audio/2022/03/15/audio_3a98e1e9e7.mp3")
+
+}
+
+function create(){
+
+this.sound.add("music",{loop:true,volume:0.3}).play()
+
+generateWorld.call(this)
+
+player=this.physics.add.sprite(200,200,"player")
+
+player.setCollideWorldBounds(true)
+
+this.cameras.main.startFollow(player)
+this.cameras.main.setZoom(2)
+
+for(let i=0;i<10;i++){
+
+let bunny=this.physics.add.sprite(
+Phaser.Math.Between(0,WORLD*TILE),
+300,
+"bunny")
+
+animals.push(bunny)
+
+}
+
+setupControls()
+
+this.input.on("pointerdown",pointer=>{
+
+mineBlock.call(this,pointer)
+
+})
+
+}
 
 function generateWorld(){
 
 for(let y=0;y<WORLD;y++){
 
-world[y] = []
+map[y]=[]
 
 for(let x=0;x<WORLD;x++){
 
-if(y > 120){
+let type="air"
 
-world[y][x] = "dirt"
+if(y>120) type="dirt"
+if(y===120) type="grass"
+if(y>150) type="stone"
 
-}else if(y === 120){
+map[y][x]=type
 
-world[y][x] = "grass"
+if(type!=="air"){
 
-}else{
+let block=this.physics.add.staticImage(x*TILE,y*TILE,type)
 
-world[y][x] = "air"
+block.type=type
 
-}
-
-}
-
-}
-
-for(let i=0;i<50;i++){
-
-let x = Math.floor(Math.random()*WORLD)
-
-world[119][x] = "tree"
+blocks.push(block)
 
 }
 
 }
 
-generateWorld()
-
-let player = {
-
-x:200,
-y:100,
-vx:0,
-vy:0,
-hp:100,
-ground:false
+}
 
 }
 
-let animals = []
+function mineBlock(pointer){
 
-for(let i=0;i<10;i++){
+let worldX=pointer.worldX
+let worldY=pointer.worldY
 
-animals.push({
+blocks.forEach(b=>{
 
-x:Math.random()*WORLD*TILE,
-y:100
+if(
+Math.abs(b.x-worldX)<20 &&
+Math.abs(b.y-worldY)<20
+){
+
+if(b.type==="dirt") inv.stone++
+if(b.type==="stone") inv.stone++
+if(b.type==="grass") inv.wood++
+
+b.destroy()
+
+}
 
 })
+
+updateInventory()
+
+}
+
+function updateInventory(){
+
+document.getElementById("wood").innerText=inv.wood
+document.getElementById("stone").innerText=inv.stone
 
 }
 
 function update(){
 
-player.vy += 0.5
+if(moveLeft){
 
-player.x += player.vx
-player.y += player.vy
+player.setVelocityX(-200)
 
-if(player.y > 300){
+}else if(moveRight){
 
-player.y = 300
-player.vy = 0
-player.ground = true
+player.setVelocityX(200)
 
-}
+}else{
 
-}
-
-function drawWorld(){
-
-for(let y=0;y<WORLD;y++){
-
-for(let x=0;x<WORLD;x++){
-
-let tile = world[y][x]
-
-if(tile==="grass"){
-
-ctx.fillStyle="#3cb043"
+player.setVelocityX(0)
 
 }
-
-else if(tile==="dirt"){
-
-ctx.fillStyle="#8b5a2b"
-
-}
-
-else if(tile==="tree"){
-
-ctx.fillStyle="#654321"
-
-}
-
-else{
-
-continue
-
-}
-
-ctx.fillRect(x*TILE-player.x+canvas.width/2,
-y*TILE-player.y+canvas.height/2,
-TILE,TILE)
-
-}
-
-}
-
-}
-
-function drawPlayer(){
-
-ctx.fillStyle="red"
-
-ctx.fillRect(
-canvas.width/2-10,
-canvas.height/2-20,
-20,
-40)
-
-}
-
-function drawAnimals(){
-
-ctx.fillStyle="white"
 
 animals.forEach(a=>{
 
-ctx.fillRect(
-a.x-player.x+canvas.width/2,
-a.y-player.y+canvas.height/2,
-20,
-20)
+a.setVelocityX(Math.sin(Date.now()/500)*30)
 
 })
 
-}
-
-function gameLoop(){
-
-update()
-
-ctx.clearRect(0,0,canvas.width,canvas.height)
-
-drawWorld()
-
-drawAnimals()
-
-drawPlayer()
-
-document.getElementById("hp").innerText = player.hp
-
-requestAnimationFrame(gameLoop)
+document.getElementById("hp").innerText=hp
 
 }
 
-gameLoop()
+function setupControls(){
 
-document.getElementById("left").ontouchstart=()=>player.vx=-5
-document.getElementById("left").ontouchend=()=>player.vx=0
+document.getElementById("left").ontouchstart=()=>moveLeft=true
+document.getElementById("left").ontouchend=()=>moveLeft=false
 
-document.getElementById("right").ontouchstart=()=>player.vx=5
-document.getElementById("right").ontouchend=()=>player.vx=0
+document.getElementById("right").ontouchstart=()=>moveRight=true
+document.getElementById("right").ontouchend=()=>moveRight=false
 
 document.getElementById("jump").ontouchstart=()=>{
 
-if(player.ground){
+if(player.body.touching.down){
 
-player.vy=-10
-player.ground=false
+player.setVelocityY(-350)
+
+}
 
 }
 
