@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Web Terraria</title>
+<title>Terraria Web</title>
 
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.js"></script>
 
@@ -12,7 +12,7 @@
 body{
 margin:0;
 overflow:hidden;
-background:black;
+background:#87CEEB;
 font-family:sans-serif;
 }
 
@@ -21,6 +21,7 @@ position:absolute;
 top:10px;
 left:10px;
 color:white;
+font-size:20px;
 z-index:10;
 }
 
@@ -30,7 +31,7 @@ bottom:10px;
 left:50%;
 transform:translateX(-50%);
 display:flex;
-gap:5px;
+gap:6px;
 }
 
 .slot{
@@ -48,6 +49,7 @@ justify-content:center;
 position:absolute;
 bottom:30px;
 left:20px;
+z-index:10;
 }
 
 .btn{
@@ -75,12 +77,12 @@ bottom:60px;
 <body>
 
 <div id="hud">
-❤️ Vida: <span id="hp">100</span>
+❤️ <span id="hp">100</span>
 </div>
 
 <div id="inventory">
-<div class="slot" id="wood">0</div>
-<div class="slot" id="stone">0</div>
+<div class="slot">🟫 <span id="dirt">0</span></div>
+<div class="slot">🪨 <span id="stone">0</span></div>
 </div>
 
 <div id="controls">
@@ -93,16 +95,21 @@ bottom:60px;
 <script>
 
 const TILE=32
-const WORLD=200
+const WIDTH=200
+const HEIGHT=200
+const SURFACE=110
 
-let map=[]
-let blocks=[]
 let player
+let blocks=[]
+let enemies=[]
 let animals=[]
+let moveLeft=false
+let moveRight=false
 let hp=100
+let time=0
 
-let inv={
-wood:0,
+let inventory={
+dirt:0,
 stone:0
 }
 
@@ -112,7 +119,7 @@ width:window.innerWidth,
 height:window.innerHeight,
 physics:{
 default:"arcade",
-arcade:{gravity:{y:600}}
+arcade:{gravity:{y:800}}
 },
 scene:{preload,create,update}
 }
@@ -121,78 +128,132 @@ new Phaser.Game(config)
 
 function preload(){
 
-this.load.image("grass","https://labs.phaser.io/assets/sprites/block.png")
+this.load.image("grass","https://labs.phaser.io/assets/tilemaps/tiles/grass-1.png")
 this.load.image("dirt","https://labs.phaser.io/assets/sprites/crate.png")
 this.load.image("stone","https://labs.phaser.io/assets/sprites/stone.png")
-this.load.image("tree","https://labs.phaser.io/assets/sprites/palm-tree.png")
-this.load.image("player","https://labs.phaser.io/assets/sprites/phaser-dude.png")
+
+this.load.image("enemy","https://labs.phaser.io/assets/sprites/zombie.png")
 this.load.image("bunny","https://labs.phaser.io/assets/sprites/bunny.png")
 
-this.load.audio("music","https://cdn.pixabay.com/audio/2022/03/15/audio_3a98e1e9e7.mp3")
+this.load.spritesheet(
+"player",
+"https://labs.phaser.io/assets/sprites/dude.png",
+{frameWidth:32,frameHeight:48}
+)
 
 }
 
 function create(){
 
-this.sound.add("music",{loop:true,volume:0.3}).play()
-
 generateWorld.call(this)
 
-player=this.physics.add.sprite(200,200,"player")
+player=this.physics.add.sprite(200,(SURFACE-2)*TILE,"player")
 
 player.setCollideWorldBounds(true)
 
 this.cameras.main.startFollow(player)
 this.cameras.main.setZoom(2)
 
-for(let i=0;i<10;i++){
+this.anims.create({
+key:"walk",
+frames:this.anims.generateFrameNumbers("player",{start:0,end:3}),
+frameRate:10,
+repeat:-1
+})
 
-let bunny=this.physics.add.sprite(
-Phaser.Math.Between(0,WORLD*TILE),
-300,
-"bunny")
-
-animals.push(bunny)
-
-}
+spawnAnimals.call(this)
+spawnEnemies.call(this)
 
 setupControls()
 
 this.input.on("pointerdown",pointer=>{
-
-mineBlock.call(this,pointer)
-
+mineBlock(pointer)
 })
 
 }
 
 function generateWorld(){
 
-for(let y=0;y<WORLD;y++){
+let save=localStorage.getItem("world")
 
-map[y]=[]
+if(save){
 
-for(let x=0;x<WORLD;x++){
+map=JSON.parse(save)
+
+}else{
+
+map=[]
+
+for(let x=0;x<WIDTH;x++){
+
+map[x]=[]
+
+for(let y=0;y<HEIGHT;y++){
 
 let type="air"
 
-if(y>120) type="dirt"
-if(y===120) type="grass"
-if(y>150) type="stone"
+if(y>SURFACE) type="dirt"
+if(y===SURFACE) type="grass"
+if(y>SURFACE+12) type="stone"
 
-map[y][x]=type
-
-if(type!=="air"){
-
-let block=this.physics.add.staticImage(x*TILE,y*TILE,type)
-
-block.type=type
-
-blocks.push(block)
+map[x][y]=type
 
 }
 
 }
+
+localStorage.setItem("world",JSON.stringify(map))
+
+}
+
+for(let x=0;x<WIDTH;x++){
+
+for(let y=0;y<HEIGHT;y++){
+
+let t=map[x][y]
+
+if(t!=="air"){
+
+let b=this.physics.add.staticImage(x*TILE,y*TILE,t)
+b.setOrigin(0)
+b.type=t
+blocks.push(b)
+
+}
+
+}
+
+}
+
+}
+
+function spawnAnimals(){
+
+for(let i=0;i<10;i++){
+
+let bunny=this.physics.add.sprite(
+Phaser.Math.Between(0,WIDTH*TILE),
+(SURFACE-2)*TILE,
+"bunny"
+)
+
+animals.push(bunny)
+
+}
+
+}
+
+function spawnEnemies(){
+
+for(let i=0;i<5;i++){
+
+let e=this.physics.add.sprite(
+Phaser.Math.Between(0,WIDTH*TILE),
+(SURFACE-2)*TILE,
+"enemy"
+)
+
+enemies.push(e)
 
 }
 
@@ -200,60 +261,77 @@ blocks.push(block)
 
 function mineBlock(pointer){
 
-let worldX=pointer.worldX
-let worldY=pointer.worldY
+let x=pointer.worldX
+let y=pointer.worldY
 
 blocks.forEach(b=>{
 
-if(
-Math.abs(b.x-worldX)<20 &&
-Math.abs(b.y-worldY)<20
-){
+if(Math.abs(b.x-x)<20 && Math.abs(b.y-y)<20){
 
-if(b.type==="dirt") inv.stone++
-if(b.type==="stone") inv.stone++
-if(b.type==="grass") inv.wood++
+if(b.type==="dirt") inventory.dirt++
+if(b.type==="stone") inventory.stone++
 
 b.destroy()
-
-}
-
-})
 
 updateInventory()
 
 }
 
+})
+
+}
+
 function updateInventory(){
 
-document.getElementById("wood").innerText=inv.wood
-document.getElementById("stone").innerText=inv.stone
+document.getElementById("dirt").innerText=inventory.dirt
+document.getElementById("stone").innerText=inventory.stone
 
 }
 
 function update(){
 
+time+=0.002
+
+this.cameras.main.setBackgroundColor(
+Phaser.Display.Color.HSVToRGB(0.6,0.4,0.8+Math.sin(time)*0.2)
+)
+
 if(moveLeft){
 
 player.setVelocityX(-200)
+player.flipX=true
+player.anims.play("walk",true)
 
 }else if(moveRight){
 
 player.setVelocityX(200)
+player.flipX=false
+player.anims.play("walk",true)
 
 }else{
 
 player.setVelocityX(0)
+player.anims.stop()
 
 }
 
 animals.forEach(a=>{
+a.setVelocityX(Math.sin(Date.now()/500)*20)
+})
 
-a.setVelocityX(Math.sin(Date.now()/500)*30)
+enemies.forEach(e=>{
+
+e.setVelocityX(Math.sin(Date.now()/400)*40)
+
+if(Phaser.Math.Distance.Between(e.x,e.y,player.x,player.y)<40){
+
+hp-=0.05
+
+}
 
 })
 
-document.getElementById("hp").innerText=hp
+document.getElementById("hp").innerText=Math.floor(hp)
 
 }
 
@@ -269,7 +347,7 @@ document.getElementById("jump").ontouchstart=()=>{
 
 if(player.body.touching.down){
 
-player.setVelocityY(-350)
+player.setVelocityY(-450)
 
 }
 
