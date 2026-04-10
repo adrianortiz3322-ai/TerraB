@@ -3,17 +3,23 @@ let gameStarted = false;
 let player = {
   x: 100,
   y: 100,
-  width: 32,
-  height: 32,
-  color: '#FF0000',
+  width: 48,  // Ajustado al sprite
+  height: 48, // Ajustado al sprite
   velocityX: 0,
   velocityY: 0,
   speed: 3,
   jumpForce: 12,
   gravity: 0.5,
   onGround: false,
-  health: 100
+  health: 100,
+  direction: 'right', // Dirección del movimiento
+  animationFrame: 0,  // Frame de animación
+  lastDirectionChange: 0
 };
+
+// Imagen del jugador
+let playerImage = new Image();
+playerImage.src = 'player.png'; // Asegúrate de tener este archivo en tu repo
 
 // Dimensiones del mundo
 const worldWidth = 200;
@@ -35,9 +41,9 @@ function generateWorld() {
     for (let x = 0; x < worldWidth; x++) {
       const noise = Math.random();
       if (noise < 0.15) {
-        world[y][x] = 'tree';       // Árbol
+        world[y][x] = 'tree';
       } else if (noise < 0.25) {
-        world[y][x] = 'rock';       // Roca
+        world[y][x] = 'rock';
       } else if (noise < 0.4) {
         world[y][x] = 'grass';
       } else if (noise < 0.6) {
@@ -63,11 +69,8 @@ const tileColors = {
   rock: '#A9A9A9'
 };
 
-// Controles táctiles para iPhone
-let keys = {};
-
-// Botones virtuales
-const touchControls = {
+// Controles táctiles
+let touchControls = {
   up: false,
   left: false,
   down: false,
@@ -99,8 +102,14 @@ function drawTouchControls() {
 function updateTouchControls() {
   if (touchControls.up) player.velocityY = -player.speed;
   if (touchControls.down) player.velocityY = player.speed;
-  if (touchControls.left) player.velocityX = -player.speed;
-  if (touchControls.right) player.velocityX = player.speed;
+  if (touchControls.left) {
+    player.velocityX = -player.speed;
+    player.direction = 'left';
+  }
+  if (touchControls.right) {
+    player.velocityX = player.speed;
+    player.direction = 'right';
+  }
   if (touchControls.jump && player.onGround) {
     player.velocityY = -player.jumpForce;
     player.onGround = false;
@@ -116,6 +125,18 @@ function drawHealthBar() {
   ctx.strokeStyle = '#fff';
   ctx.lineWidth = 2;
   ctx.strokeRect(20, 20, 204, 24);
+}
+
+// Dibujar jugador con sprite
+function drawPlayer() {
+  ctx.save();
+  if (player.direction === 'left') {
+    ctx.scale(-1, 1); // Voltear imagen
+    ctx.drawImage(playerImage, -(canvas.width / 2), canvas.height / 2 - player.height, player.width, player.height);
+  } else {
+    ctx.drawImage(playerImage, canvas.width / 2 - player.width, canvas.height / 2 - player.height, player.width, player.height);
+  }
+  ctx.restore();
 }
 
 // Funciones de lobby
@@ -154,16 +175,6 @@ function drawWorld() {
       }
     }
   }
-}
-
-function drawPlayer() {
-  ctx.fillStyle = player.color;
-  ctx.fillRect(
-    canvas.width / 2 - player.width / 2,
-    canvas.height / 2 - player.height / 2,
-    player.width,
-    player.height
-  );
 }
 
 function gameLoop() {
@@ -218,7 +229,6 @@ function handleTouchMove(e) {
     const deltaX = touch.clientX - startX;
     const deltaY = touch.clientY - startY;
 
-    // Detectar dirección
     if (Math.abs(deltaX) > Math.abs(deltaY)) {
       if (deltaX > 0) touchControls.right = true;
       else touchControls.left = true;
@@ -234,7 +244,6 @@ function handleTouchEnd(e) {
   for (let touch of e.changedTouches) {
     delete activeTouches[touch.identifier];
 
-    // Detectar botón de salto
     if (touch.clientX > canvas.width - 100 && touch.clientY > canvas.height - 100) {
       touchControls.jump = true;
       setTimeout(() => (touchControls.jump = false), 200);
