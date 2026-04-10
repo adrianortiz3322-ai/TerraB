@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es">
+<html>
 <head>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Terraria Web</title>
 
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.js"></script>
 
@@ -22,7 +22,7 @@ top:10px;
 left:10px;
 color:white;
 font-size:20px;
-z-index:10;
+z-index:2;
 }
 
 #inventory{
@@ -31,47 +31,45 @@ bottom:10px;
 left:50%;
 transform:translateX(-50%);
 display:flex;
-gap:6px;
+gap:4px;
+z-index:2;
 }
 
 .slot{
-width:50px;
-height:50px;
-background:rgba(0,0,0,0.5);
+width:40px;
+height:40px;
 border:2px solid white;
-color:white;
-display:flex;
-align-items:center;
-justify-content:center;
+background:rgba(0,0,0,0.4);
 }
 
 #controls{
 position:absolute;
-bottom:30px;
+bottom:80px;
 left:20px;
-z-index:10;
+z-index:2;
 }
 
 .btn{
-width:70px;
-height:70px;
+width:60px;
+height:60px;
 background:rgba(0,0,0,0.4);
 border-radius:50%;
+color:white;
+font-size:30px;
 display:flex;
 align-items:center;
 justify-content:center;
-color:white;
-font-size:30px;
 margin:5px;
 }
 
 #jump{
 position:absolute;
 right:30px;
-bottom:60px;
+bottom:80px;
 }
 
 </style>
+
 </head>
 
 <body>
@@ -80,10 +78,7 @@ bottom:60px;
 ❤️ <span id="hp">100</span>
 </div>
 
-<div id="inventory">
-<div class="slot">🟫 <span id="dirt">0</span></div>
-<div class="slot">🪨 <span id="stone">0</span></div>
-</div>
+<div id="inventory"></div>
 
 <div id="controls">
 <div class="btn" id="left">◀</div>
@@ -95,23 +90,23 @@ bottom:60px;
 <script>
 
 const TILE=32
-const WIDTH=200
-const HEIGHT=200
-const SURFACE=110
+const WORLD_W=200
+const WORLD_H=200
+const SURFACE=100
 
-let player
 let blocks=[]
 let enemies=[]
 let animals=[]
+let bullets=[]
+
+let player
+let hp=100
+
 let moveLeft=false
 let moveRight=false
-let hp=100
-let time=0
 
-let inventory={
-dirt:0,
-stone:0
-}
+let time=0
+let rain=[]
 
 const config={
 type:Phaser.AUTO,
@@ -135,6 +130,8 @@ this.load.image("stone","https://labs.phaser.io/assets/sprites/stone.png")
 this.load.image("enemy","https://labs.phaser.io/assets/sprites/zombie.png")
 this.load.image("bunny","https://labs.phaser.io/assets/sprites/bunny.png")
 
+this.load.image("arrow","https://labs.phaser.io/assets/sprites/bullets/bullet7.png")
+
 this.load.spritesheet(
 "player",
 "https://labs.phaser.io/assets/sprites/dude.png",
@@ -149,8 +146,6 @@ generateWorld.call(this)
 
 player=this.physics.add.sprite(200,(SURFACE-2)*TILE,"player")
 
-player.setCollideWorldBounds(true)
-
 this.cameras.main.startFollow(player)
 this.cameras.main.setZoom(2)
 
@@ -161,62 +156,48 @@ frameRate:10,
 repeat:-1
 })
 
-spawnAnimals.call(this)
 spawnEnemies.call(this)
+spawnAnimals.call(this)
+
+createInventory()
 
 setupControls()
 
-this.input.on("pointerdown",pointer=>{
-mineBlock(pointer)
-})
+this.input.on("pointerdown",()=>shoot.call(this))
 
 }
 
 function generateWorld(){
 
-let save=localStorage.getItem("world")
+for(let x=0;x<WORLD_W;x++){
 
-if(save){
+let height=SURFACE+Math.floor(Math.sin(x*0.2)*5)
 
-map=JSON.parse(save)
-
-}else{
-
-map=[]
-
-for(let x=0;x<WIDTH;x++){
-
-map[x]=[]
-
-for(let y=0;y<HEIGHT;y++){
+for(let y=0;y<WORLD_H;y++){
 
 let type="air"
 
-if(y>SURFACE) type="dirt"
-if(y===SURFACE) type="grass"
-if(y>SURFACE+12) type="stone"
+if(y==height) type="grass"
+else if(y>height && y<height+5) type="dirt"
+else if(y>=height+5) type="stone"
 
-map[x][y]=type
-
+if(Math.random()<0.04 && y==height){
+this.add.rectangle(x*TILE,(y-1)*TILE,20,40,0x228B22)
 }
 
+if(Math.random()<0.02 && y==height){
+this.add.circle(x*TILE,(y-1)*TILE,6,0xff00ff)
 }
 
-localStorage.setItem("world",JSON.stringify(map))
-
+if(Math.random()<0.05 && y>height+5){
+type="air"
 }
 
-for(let x=0;x<WIDTH;x++){
+if(type!="air"){
 
-for(let y=0;y<HEIGHT;y++){
-
-let t=map[x][y]
-
-if(t!=="air"){
-
-let b=this.physics.add.staticImage(x*TILE,y*TILE,t)
+let b=this.physics.add.staticImage(x*TILE,y*TILE,type)
 b.setOrigin(0)
-b.type=t
+
 blocks.push(b)
 
 }
@@ -231,13 +212,13 @@ function spawnAnimals(){
 
 for(let i=0;i<10;i++){
 
-let bunny=this.physics.add.sprite(
-Phaser.Math.Between(0,WIDTH*TILE),
+let a=this.physics.add.sprite(
+Phaser.Math.Between(0,WORLD_W*TILE),
 (SURFACE-2)*TILE,
 "bunny"
 )
 
-animals.push(bunny)
+animals.push(a)
 
 }
 
@@ -245,10 +226,10 @@ animals.push(bunny)
 
 function spawnEnemies(){
 
-for(let i=0;i<5;i++){
+for(let i=0;i<6;i++){
 
 let e=this.physics.add.sprite(
-Phaser.Math.Between(0,WIDTH*TILE),
+Phaser.Math.Between(0,WORLD_W*TILE),
 (SURFACE-2)*TILE,
 "enemy"
 )
@@ -259,32 +240,28 @@ enemies.push(e)
 
 }
 
-function mineBlock(pointer){
+function shoot(){
 
-let x=pointer.worldX
-let y=pointer.worldY
+let b=this.physics.add.sprite(player.x,player.y,"arrow")
 
-blocks.forEach(b=>{
+b.setVelocityX(player.flipX?-500:500)
 
-if(Math.abs(b.x-x)<20 && Math.abs(b.y-y)<20){
-
-if(b.type==="dirt") inventory.dirt++
-if(b.type==="stone") inventory.stone++
-
-b.destroy()
-
-updateInventory()
+bullets.push(b)
 
 }
 
-})
+function createInventory(){
+
+let inv=document.getElementById("inventory")
+
+for(let i=0;i<10;i++){
+
+let s=document.createElement("div")
+s.className="slot"
+
+inv.appendChild(s)
 
 }
-
-function updateInventory(){
-
-document.getElementById("dirt").innerText=inventory.dirt
-document.getElementById("stone").innerText=inventory.stone
 
 }
 
@@ -293,26 +270,26 @@ function update(){
 time+=0.002
 
 this.cameras.main.setBackgroundColor(
-Phaser.Display.Color.HSVToRGB(0.6,0.4,0.8+Math.sin(time)*0.2)
+Phaser.Display.Color.HSVToRGB(
+0.6,
+0.4,
+0.7+Math.sin(time)*0.3
+)
 )
 
 if(moveLeft){
-
 player.setVelocityX(-200)
 player.flipX=true
 player.anims.play("walk",true)
-
-}else if(moveRight){
-
+}
+else if(moveRight){
 player.setVelocityX(200)
 player.flipX=false
 player.anims.play("walk",true)
-
-}else{
-
+}
+else{
 player.setVelocityX(0)
 player.anims.stop()
-
 }
 
 animals.forEach(a=>{
@@ -321,14 +298,32 @@ a.setVelocityX(Math.sin(Date.now()/500)*20)
 
 enemies.forEach(e=>{
 
-e.setVelocityX(Math.sin(Date.now()/400)*40)
+let dir=player.x<e.x?-1:1
+
+e.setVelocityX(dir*40)
 
 if(Phaser.Math.Distance.Between(e.x,e.y,player.x,player.y)<40){
+hp-=0.1
+}
 
-hp-=0.05
+})
+
+if(Math.random()<0.1){
+
+let drop=this.add.rectangle(
+player.x+Phaser.Math.Between(-400,400),
+player.y-400,
+2,
+10,
+0x66ccff
+)
+
+rain.push(drop)
 
 }
 
+rain.forEach(r=>{
+r.y+=10
 })
 
 document.getElementById("hp").innerText=Math.floor(hp)
@@ -346,9 +341,7 @@ document.getElementById("right").ontouchend=()=>moveRight=false
 document.getElementById("jump").ontouchstart=()=>{
 
 if(player.body.touching.down){
-
 player.setVelocityY(-450)
-
 }
 
 }
