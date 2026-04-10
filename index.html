@@ -66,6 +66,7 @@ bottom:80px
 <body>
 
 <div id="hud">❤️ <span id="hp">100</span></div>
+
 <div id="inventory"></div>
 
 <div id="controls">
@@ -80,7 +81,7 @@ bottom:80px
 const TILE=32
 const WORLD_W=200
 const WORLD_H=200
-const SURFACE=90
+const SURFACE=95
 
 let blocks
 let enemies=[]
@@ -93,6 +94,7 @@ let hp=100
 
 let moveLeft=false
 let moveRight=false
+
 let time=0
 
 const config={
@@ -135,9 +137,9 @@ generateWorld.call(this)
 
 player=this.physics.add.sprite(200,(SURFACE-2)*TILE,"player")
 
-this.physics.add.collider(player,blocks)
-
 player.setCollideWorldBounds(true)
+
+this.physics.add.collider(player,blocks)
 
 this.cameras.main.startFollow(player)
 this.cameras.main.setZoom(2)
@@ -171,6 +173,10 @@ if(Math.random()<0.04 && y==height){
 this.add.rectangle(x*TILE,(y-1)*TILE,20,40,0x228B22)
 }
 
+if(Math.random()<0.02 && y==height){
+this.add.circle(x*TILE,(y-1)*TILE,6,0xff00ff)
+}
+
 if(Math.random()<0.05 && y>height+5){
 type="air"
 }
@@ -195,6 +201,8 @@ Phaser.Math.Between(0,WORLD_W*TILE),
 "bunny"
 )
 
+this.physics.add.collider(a,blocks)
+
 animals.push(a)
 
 }
@@ -210,6 +218,8 @@ Phaser.Math.Between(0,WORLD_W*TILE),
 (SURFACE-2)*TILE,
 "enemy"
 )
+
+this.physics.add.collider(e,blocks)
 
 enemies.push(e)
 
