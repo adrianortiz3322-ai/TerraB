@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mini Terraria</title>
+
+<style>
+
+body{
+margin:0;
+overflow:hidden;
+background:#87CEEB;
+font-family:sans-serif;
+}
+
+canvas{
+display:block;
+}
+
+#ui{
+position:fixed;
+top:10px;
+left:10px;
+color:white;
+font-size:18px;
+}
+
+#controls{
+position:fixed;
+bottom:20px;
+left:50%;
+transform:translateX(-50%);
+display:flex;
+gap:20px;
+}
+
+.btn{
+width:70px;
+height:70px;
+border-radius:50%;
+background:rgba(0,0,0,0.5);
+color:white;
+font-size:30px;
+display:flex;
+align-items:center;
+justify-content:center;
+user-select:none;
+}
+
+#jump{
+position:fixed;
+right:30px;
+bottom:60px;
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="ui">
+❤️ Vida: <span id="hp">100</span>
+</div>
+
+<canvas id="game"></canvas>
+
+<div id="controls">
+<div class="btn" id="left">◀</div>
+<div class="btn" id="right">▶</div>
+</div>
+
+<div class="btn" id="jump">⬆</div>
+
+<audio autoplay loop>
+<source src="https://cdn.pixabay.com/audio/2022/03/15/audio_3a98e1e9e7.mp3">
+</audio>
+
+<script>
+
+const canvas = document.getElementById("game")
+const ctx = canvas.getContext("2d")
+
+canvas.width = window.innerWidth
+canvas.height = window.innerHeight
+
+const TILE = 32
+const WORLD = 200
+
+let world = []
+
+function generateWorld(){
+
+for(let y=0;y<WORLD;y++){
+
+world[y] = []
+
+for(let x=0;x<WORLD;x++){
+
+if(y > 120){
+
+world[y][x] = "dirt"
+
+}else if(y === 120){
+
+world[y][x] = "grass"
+
+}else{
+
+world[y][x] = "air"
+
+}
+
+}
+
+}
+
+for(let i=0;i<50;i++){
+
+let x = Math.floor(Math.random()*WORLD)
+
+world[119][x] = "tree"
+
+}
+
+}
+
+generateWorld()
+
+let player = {
+
+x:200,
+y:100,
+vx:0,
+vy:0,
+hp:100,
+ground:false
+
+}
+
+let animals = []
+
+for(let i=0;i<10;i++){
+
+animals.push({
+
+x:Math.random()*WORLD*TILE,
+y:100
+
+})
+
+}
+
+function update(){
+
+player.vy += 0.5
+
+player.x += player.vx
+player.y += player.vy
+
+if(player.y > 300){
+
+player.y = 300
+player.vy = 0
+player.ground = true
+
+}
+
+}
+
+function drawWorld(){
+
+for(let y=0;y<WORLD;y++){
+
+for(let x=0;x<WORLD;x++){
+
+let tile = world[y][x]
+
+if(tile==="grass"){
+
+ctx.fillStyle="#3cb043"
+
+}
+
+else if(tile==="dirt"){
+
+ctx.fillStyle="#8b5a2b"
+
+}
+
+else if(tile==="tree"){
+
+ctx.fillStyle="#654321"
+
+}
+
+else{
+
+continue
+
+}
+
+ctx.fillRect(x*TILE-player.x+canvas.width/2,
+y*TILE-player.y+canvas.height/2,
+TILE,TILE)
+
+}
+
+}
+
+}
+
+function drawPlayer(){
+
+ctx.fillStyle="red"
+
+ctx.fillRect(
+canvas.width/2-10,
+canvas.height/2-20,
+20,
+40)
+
+}
+
+function drawAnimals(){
+
+ctx.fillStyle="white"
+
+animals.forEach(a=>{
+
+ctx.fillRect(
+a.x-player.x+canvas.width/2,
+a.y-player.y+canvas.height/2,
+20,
+20)
+
+})
+
+}
+
+function gameLoop(){
+
+update()
+
+ctx.clearRect(0,0,canvas.width,canvas.height)
+
+drawWorld()
+
+drawAnimals()
+
+drawPlayer()
+
+document.getElementById("hp").innerText = player.hp
+
+requestAnimationFrame(gameLoop)
+
+}
+
+gameLoop()
+
+document.getElementById("left").ontouchstart=()=>player.vx=-5
+document.getElementById("left").ontouchend=()=>player.vx=0
+
+document.getElementById("right").ontouchstart=()=>player.vx=5
+document.getElementById("right").ontouchend=()=>player.vx=0
+
+document.getElementById("jump").ontouchstart=()=>{
+
+if(player.ground){
+
+player.vy=-10
+player.ground=false
+
+}
+
+}
+
+</script>
+
+</body>
+</html>
