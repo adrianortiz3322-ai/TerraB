@@ -3,8 +3,8 @@ let gameStarted = false;
 let player = {
   x: 100,
   y: 100,
-  width: 48,  // Ajustado al sprite
-  height: 48, // Ajustado al sprite
+  width: 48,
+  height: 48,
   velocityX: 0,
   velocityY: 0,
   speed: 3,
@@ -12,14 +12,31 @@ let player = {
   gravity: 0.5,
   onGround: false,
   health: 100,
-  direction: 'right', // Dirección del movimiento
-  animationFrame: 0,  // Frame de animación
+  direction: 'right',
+  animationFrame: 0,
   lastDirectionChange: 0
 };
 
-// Imagen del jugador
+// Imágenes del jugador y bloques
 let playerImage = new Image();
-playerImage.src = 'player.png'; // Asegúrate de tener este archivo en tu repo
+playerImage.src = 'player.png';
+
+let textures = {
+  grass: new Image(),
+  dirt: new Image(),
+  stone: new Image(),
+  sand: new Image(),
+  tree: new Image(),
+  rock: new Image()
+};
+
+// Cargar texturas
+textures.grass.src = 'grass.png';
+textures.dirt.src = 'dirt.png';
+textures.stone.src = 'stone.png';
+textures.sand.src = 'sand.png';
+textures.tree.src = 'tree.png';
+textures.rock.src = 'rock.png';
 
 // Dimensiones del mundo
 const worldWidth = 200;
@@ -33,7 +50,7 @@ const ctx = canvas.getContext('2d');
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-// Generar mundo con árboles y recursos
+// Generar mundo con texturas
 function generateWorld() {
   const world = [];
   for (let y = 0; y < worldHeight; y++) {
@@ -59,15 +76,6 @@ function generateWorld() {
 }
 
 const world = generateWorld();
-
-const tileColors = {
-  grass: '#5B9C00',
-  dirt: '#8B4513',
-  stone: '#808080',
-  sand: '#F0E68C',
-  tree: '#2E8B57',
-  rock: '#A9A9A9'
-};
 
 // Controles táctiles
 let touchControls = {
@@ -131,12 +139,36 @@ function drawHealthBar() {
 function drawPlayer() {
   ctx.save();
   if (player.direction === 'left') {
-    ctx.scale(-1, 1); // Voltear imagen
+    ctx.scale(-1, 1);
     ctx.drawImage(playerImage, -(canvas.width / 2), canvas.height / 2 - player.height, player.width, player.height);
   } else {
     ctx.drawImage(playerImage, canvas.width / 2 - player.width, canvas.height / 2 - player.height, player.width, player.height);
   }
   ctx.restore();
+}
+
+// Dibujar mundo con texturas
+function drawWorld() {
+  const offsetX = Math.floor((canvas.width / 2 - player.x) / tileSize) - 5;
+  const offsetY = Math.floor((canvas.height / 2 - player.y) / tileSize) - 5;
+
+  for (let y = 0; y < 20; y++) {
+    for (let x = 0; x < 20; x++) {
+      const worldX = offsetX + x;
+      const worldY = offsetY + y;
+
+      if (worldX >= 0 && worldX < worldWidth && worldY >= 0 && worldY < worldHeight) {
+        const tileType = world[worldY][worldX];
+        const texture = textures[tileType];
+        if (texture) {
+          ctx.drawImage(texture, x * tileSize, y * tileSize, tileSize, tileSize);
+        } else {
+          ctx.fillStyle = '#808080';
+          ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+        }
+      }
+    }
+  }
 }
 
 // Funciones de lobby
@@ -152,29 +184,6 @@ function startGame() {
 function showSettings() {
   alert('Configuración temporal');
   audioManager.playSound('click');
-}
-
-// Dibujar mundo
-function drawWorld() {
-  const offsetX = Math.floor((canvas.width / 2 - player.x) / tileSize) - 5;
-  const offsetY = Math.floor((canvas.height / 2 - player.y) / tileSize) - 5;
-
-  for (let y = 0; y < 20; y++) {
-    for (let x = 0; x < 20; x++) {
-      const worldX = offsetX + x;
-      const worldY = offsetY + y;
-
-      if (worldX >= 0 && worldX < worldWidth && worldY >= 0 && worldY < worldHeight) {
-        const tileType = world[worldY][worldX];
-        ctx.fillStyle = tileColors[tileType];
-        ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
-
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 0.5;
-        ctx.strokeRect(x * tileSize, y * tileSize, tileSize, tileSize);
-      }
-    }
-  }
 }
 
 function gameLoop() {
